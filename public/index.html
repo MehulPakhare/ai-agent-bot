@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI System Admin</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #e9eff5; display: flex; justify-content: center; height: 100vh; margin: 0; align-items: center; }
+        .container { width: 600px; background: white; height: 800px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; }
+        
+        .screen { display: none; height: 100%; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        .active { display: flex; }
+
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn-primary { width: 100%; padding: 12px; background: #0084ff; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        .btn-link { background: none; border: none; color: #0084ff; cursor: pointer; text-decoration: underline; margin-top: 10px; }
+
+        /* Chat Styles */
+        .header { background: #0084ff; color: white; padding: 15px; margin: -20px -20px 10px -20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { padding: 10px 15px; border-radius: 18px; max-width: 80%; font-size: 14px; }
+        .user { background: #0084ff; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .assistant { background: #f0f2f5; color: black; align-self: flex-start; border-bottom-left-radius: 4px; }
+
+        .input-area { display: flex; gap: 8px; padding-top: 10px; margin-top: auto; border-top: 1px solid #eee; }
+        #msg-input { flex: 1; border-radius: 20px; }
+        .btn-send { padding: 0 20px; background: #0084ff; color: white; border: none; border-radius: 20px; cursor: pointer; }
+
+        /* ADMIN TABLE STYLES */
+        .admin-scroll { overflow-y: auto; flex: 1; }
+        .section-title { font-weight: bold; margin-top: 30px; margin-bottom: 10px; border-bottom: 2px solid #0084ff; padding-bottom: 5px; color: #333; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; vertical-align: top; }
+        th { background-color: #f8f9fa; font-weight: bold; color: #555; }
+        .hash-text { color: #d63384; font-family: monospace; } /* Pink for hashes */
+        .role-user { color: blue; font-weight: bold; }
+        .role-ai { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div id="login-screen" class="screen active">
+        <h2 style="text-align:center; margin-top:150px;">System Login</h2>
+        <input type="text" id="login-email" placeholder="Email (admin)">
+        <input type="password" id="login-password" placeholder="Password (admin123)">
+        <button class="btn-primary" onclick="login()">Login</button>
+        <button class="btn-link" onclick="switchScreen('signup-screen')">Create Account</button>
+    </div>
+
+    <div id="signup-screen" class="screen">
+        <h2 style="text-align:center; margin-top:150px;">New Account</h2>
+        <input type="email" id="signup-email" placeholder="Email">
+        <input type="password" id="signup-password" placeholder="Password">
+        <button class="btn-primary" onclick="signup()">Sign Up</button>
+        <button class="btn-link" onclick="switchScreen('login-screen')">Back to Login</button>
+    </div>
+
+    <div id="chat-screen" class="screen">
+        <div class="header">
+            <span>Chat Assistant</span>
+            <button onclick="logout()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:5px; border-radius:4px; cursor:pointer;">Logout</button>
+        </div>
+        <div id="chat-box"></div>
+        <div class="input-area">
+            <input type="text" id="msg-input" placeholder="Type here..." onkeypress="handleEnter(event)">
+            <button class="btn-send" onclick="send()">Send</button>
+        </div>
+    </div>
+
+    <div id="admin-screen" class="screen">
+        <div class="header" style="background: #2c3e50;">
+            <span>ADMIN DATABASE</span>
+            <button onclick="logout()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:5px; border-radius:4px; cursor:pointer;">Logout</button>
+        </div>
+        
+        <div class="admin-scroll">
+            
+            <div class="section-title">1. USERS (Check Passwords)</div>
+            <table id="users-table"></table>
+
+            <div class="section-title">2. CONVERSATIONS</div>
+            <table id="conv-table"></table>
+
+            <div class="section-title">3. MESSAGES (Detailed History)</div>
+            <table id="msg-table"></table>
+
+            <div class="section-title">4. AGENT ACTIONS (Notes & Embeddings)</div>
+            <table id="notes-table"></table>
+
+            <button class="btn-primary" onclick="loadAdminData()">Refresh Database</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io();
+    let currentUser = null;
+    let token = null;
+
+    function switchScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    async function signup() {
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const res = await fetch('/signup', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, password }) });
+        if(res.ok) { alert("Created!"); switchScreen('login-screen'); }
+    }
+
+    async function login() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const res = await fetch('/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, password }) });
+        const data = await res.json();
+
+        if (data.token) {
+            token = data.token;
+            currentUser = data.userId;
+            if (data.isAdmin) {
+                switchScreen('admin-screen');
+                loadAdminData();
+            } else {
+                switchScreen('chat-screen');
+                socket.emit('join_room', currentUser);
+                loadHistory();
+            }
+        } else { alert("Login Failed"); }
+    }
+
+    function logout() { location.reload(); }
+
+    // --- ADMIN RENDER LOGIC ---
+    async function loadAdminData() {
+        const res = await fetch('/admin/data', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ token }) });
+        const data = await res.json();
+
+        // 1. Users Table
+        document.getElementById('users-table').innerHTML = 
+            `<thead><tr><th>ID</th><th>Email</th><th>Password Hash (Verified)</th></tr></thead><tbody>` + 
+            data.users.map(u => `<tr><td>${u.id}</td><td>${u.email}</td><td class="hash-text">${u.password.substring(0, 20)}...</td></tr>`).join('') + `</tbody>`;
+
+        // 2. Conversations Table
+        document.getElementById('conv-table').innerHTML = 
+            `<thead><tr><th>ID</th><th>User</th><th>Started</th></tr></thead><tbody>` + 
+            data.conversations.map(c => `<tr><td>${c.id}</td><td>${c.user.email}</td><td>${new Date(c.createdAt).toLocaleTimeString()}</td></tr>`).join('') + `</tbody>`;
+
+        // 3. Messages Table
+        document.getElementById('msg-table').innerHTML = 
+            `<thead><tr><th>Role</th><th>User</th><th>Text</th><th>Time</th></tr></thead><tbody>` + 
+            data.messages.map(m => `<tr>
+                <td class="${m.role === 'user' ? 'role-user' : 'role-ai'}">${m.role.toUpperCase()}</td>
+                <td>${m.conversation.user.email}</td>
+                <td>${m.content}</td>
+                <td>${new Date(m.createdAt).toLocaleTimeString()}</td>
+            </tr>`).join('') + `</tbody>`;
+
+        // 4. Notes Table
+        document.getElementById('notes-table').innerHTML = 
+            `<thead><tr><th>User</th><th>Content</th><th>Vector (Preview)</th></tr></thead><tbody>` + 
+            data.notes.map(n => `<tr><td>${n.user.email}</td><td>${n.content}</td><td style="color:#888; font-size:9px;">${n.embedding ? n.embedding.substring(0, 30) + "..." : "None"}</td></tr>`).join('') + `</tbody>`;
+    }
+
+    // --- CHAT LOGIC ---
+    async function loadHistory() {
+        const res = await fetch(`/history/${currentUser}`);
+        const msgs = await res.json();
+        document.getElementById('chat-box').innerHTML = '';
+        msgs.forEach(m => addMessage(m.content, m.role));
+    }
+
+    function send() {
+        const input = document.getElementById('msg-input');
+        const text = input.value;
+        if(!text) return;
+        addMessage(text, 'user');
+        socket.emit('send_message', { text, userId: currentUser, token });
+        input.value = '';
+    }
+
+    socket.on('receive_message', (data) => addMessage(data.text, 'assistant'));
+
+    function addMessage(text, role) {
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        div.innerText = text;
+        const box = document.getElementById('chat-box');
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function handleEnter(e) { if(e.key === 'Enter') send(); }
+</script>
+</body>
+</html>

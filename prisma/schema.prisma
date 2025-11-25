@@ -35,8 +35,10 @@ model Message {
 }
 
 model Note {
-  id      Int    @id @default(autoincrement())
-  content String
-  userId  Int
-  user    User   @relation(fields: [userId], references: [id])
+  id        Int      @id @default(autoincrement())
+  content   String
+  embedding String?  // Stores the vector as a text string (e.g. "[0.1, 0.5, ...]")
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
