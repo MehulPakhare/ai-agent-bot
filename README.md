@@ -82,3 +82,11 @@ The system uses a **Prompt Engineering & Interceptor** pattern:
     * It is converted into a **Vector Embedding** (using Gemini text-embedding-004).
     * It is saved to the `Note` table in PostgreSQL.
 4.  **Feedback:** The system intercepts the raw text and sends a formatted confirmation message `(System: 💾 Saved...)` back to the user via Websockets.
+
+
+# AI Agent Chatbot Assignment
+
+## 🎥 Watch the Demo
+### [Click here to watch the End-to-End Walkthrough Video](https://drive.google.com/file/d/1fcjcGH_StJ-zFjMUoJb74VCQKubsee7T/view?usp=sharing)
+
+---
